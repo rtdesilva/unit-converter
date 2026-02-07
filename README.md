@@ -34,4 +34,5 @@ Check out the latest versions here:
 *   **Babel:** Standalone compiler for instant browser execution.
 
 ---
-*Built with ❤️ and Antigravity AI.*
+
+
