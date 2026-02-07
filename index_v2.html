@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Unit Converter Pro - Responsive</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "accent-green": "#22c55e",
+                        "accent-orange": "#f97316",
+                        "accent-blue": "#3b82f6",
+                        "accent-purple": "#a855f7",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "2xl": "1.5rem",
+                        "3xl": "2rem",
+                    },
+                },
+            },
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        .glass {
+            background: rgba(28, 33, 39, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .dark .glass {
+            background: rgba(28, 33, 39, 0.7);
+        }
+        .light .glass {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        body {
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-color: #101922;
+        }
+        .screen-container {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: inherit;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill-1 {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Hide Default Spinners */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Smooth category scrolling */
+        .category-scroll {
+            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+        }
+    </style>
+</head>
+
+<body class="bg-background-dark font-display text-white transition-colors duration-300 dark">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Constants & Utilities
+        const UNITS = {
+            LENGTH: [
+                { id: 'm', label: 'Meters (m)', ratio: 1 },
+                { id: 'cm', label: 'Centimeters (cm)', ratio: 100 },
+                { id: 'km', label: 'Kilometers (km)', ratio: 0.001 },
+                { id: 'ft', label: 'Feet (ft)', ratio: 3.28084 },
+                { id: 'in', label: 'Inches (in)', ratio: 39.3701 },
+                { id: 'yd', label: 'Yards (yd)', ratio: 1.09361 },
+                { id: 'mi', label: 'Miles (mi)', ratio: 0.000621371 },
+            ],
+            TEMP: [
+                { id: 'c', label: 'Celsius (°C)' },
+                { id: 'f', label: 'Fahrenheit (°F)' },
+                { id: 'k', label: 'Kelvin (K)' },
+            ],
+            VOLUME: [
+                { id: 'l', label: 'Liters (L)', ratio: 1 },
+                { id: 'ml', label: 'Milliliters (ml)', ratio: 1000 },
+                { id: 'gal', label: 'Gallons (US)', ratio: 0.264172 },
+                { id: 'qt', label: 'Quarts (US)', ratio: 1.05669 },
+                { id: 'pt', label: 'Pints (US)', ratio: 2.11338 },
+                { id: 'cup', label: 'Cups (US)', ratio: 4.22675 },
+            ],
+            WEIGHT: [
+                { id: 'kg', label: 'Kilograms (kg)', ratio: 1 },
+                { id: 'g', label: 'Grams (g)', ratio: 1000 },
+                { id: 'lb', label: 'Pounds (lbs)', ratio: 2.20462 },
+                { id: 'oz', label: 'Ounces (oz)', ratio: 35.274 },
+            ]
+        };
+
+        const convert = (value, from, to, category) => {
+            if (!value && value !== 0) return 0;
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) return 0;
+
+            if (category === 'TEMP') {
+                let celsius;
+                if (from.id === 'c') celsius = numValue;
+                else if (from.id === 'f') celsius = (numValue - 32) * 5 / 9;
+                else if (from.id === 'k') celsius = numValue - 273.15;
+
+                if (to.id === 'c') return celsius.toFixed(2);
+                if (to.id === 'f') return (celsius * 9 / 5 + 32).toFixed(2);
+                if (to.id === 'k') return (celsius + 273.15).toFixed(2);
+            }
+
+            const baseValue = numValue / from.ratio;
+            const result = baseValue * to.ratio;
+            return result % 1 === 0 ? result.toString() : result.toFixed(5).replace(/\.?0+$/, "");
+        };
+
+        // Components
+        const ScreenWrapper = ({ children, active, id }) => {
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                if (active) {
+                    gsap.fromTo(containerRef.current,
+                        { x: 50, opacity: 0 },
+                        { x: 0, opacity: 1, duration: 0.4, ease: "power2.out" }
+                    );
+                }
+            }, [active]);
+
+            if (!active) return null;
+
+            return (
+                <div ref={containerRef} className="screen-container max-w-2xl mx-auto px-4 md:px-8 pb-10">
+                    {children}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [currentScreen, setCurrentScreen] = useState('home');
+            const [currentCategory, setCurrentCategory] = useState('LENGTH');
+            const [inputAmount, setInputAmount] = useState('1');
+            const [fromUnit, setFromUnit] = useState(UNITS.LENGTH[0]);
+            const [toUnit, setToUnit] = useState(UNITS.LENGTH[3]);
+            const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('converter-history') || '[]'));
+            const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem('converter-favorites') || '[]'));
+
+            useEffect(() => {
+                localStorage.setItem('converter-history', JSON.stringify(history));
+            }, [history]);
+
+            useEffect(() => {
+                localStorage.setItem('converter-favorites', JSON.stringify(favorites));
+            }, [favorites]);
+
+            const result = convert(inputAmount, fromUnit, toUnit, currentCategory);
+
+            const changeCategory = (cat) => {
+                const catKey = cat.toUpperCase() === 'TEMP' ? 'TEMP' : cat.toUpperCase();
+                setCurrentCategory(catKey);
+                setFromUnit(UNITS[catKey][0]);
+                setToUnit(UNITS[catKey][1] || UNITS[catKey][0]);
+                setInputAmount('1');
+                gsap.from(".main-card", { y: 15, opacity: 0, duration: 0.3, stagger: 0.05 });
+            };
+
+            const addToHistory = () => {
+                if (!inputAmount || inputAmount === '0') return;
+                const entry = {
+                    id: Date.now(),
+                    category: currentCategory,
+                    icon: currentCategory === 'WEIGHT' ? 'scale' : currentCategory === 'LENGTH' ? 'straighten' : currentCategory === 'TEMP' ? 'thermostat' : 'opacity',
+                    from: `${inputAmount} ${fromUnit.id.toUpperCase()}`,
+                    to: `${result} ${toUnit.id.toUpperCase()}`,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+                setHistory([entry, ...history].slice(0, 20));
+            };
+
+            const toggleFavorite = (fUnit, tUnit, cat) => {
+                const favId = `${cat}-${fUnit.id}-${tUnit.id}`;
+                const exists = favorites.find(f => f.id === favId);
+                if (exists) {
+                    setFavorites(favorites.filter(f => f.id !== favId));
+                } else {
+                    setFavorites([...favorites, {
+                        id: favId,
+                        catKey: cat,
+                        fromId: fUnit.id,
+                        toId: tUnit.id,
+                        fromLabel: fUnit.label,
+                        toLabel: tUnit.label,
+                        icon: cat === 'WEIGHT' ? 'scale' : cat === 'LENGTH' ? 'straighten' : cat === 'TEMP' ? 'thermostat' : 'opacity'
+                    }]);
+                }
+            };
+
+            const handleSwap = () => {
+                const temp = fromUnit;
+                setFromUnit(toUnit);
+                setToUnit(temp);
+                gsap.to(".swap-icon", { rotation: "+=180", duration: 0.4, ease: "back.out(1.7)" });
+            };
+
+            const isCurrentFav = favorites.some(f => f.id === `${currentCategory}-${fromUnit.id}-${toUnit.id}`);
+
+            return (
+                <div className="relative min-h-screen w-full bg-background-dark">
+                    <div className="h-6 w-full"></div>
+
+                    {/* MAIN SCREEN */}
+                    <ScreenWrapper active={currentScreen === 'home'} id="home">
+                        <header className="flex items-center py-6 justify-between">
+                            <div className="flex size-10 items-center justify-center rounded-full bg-slate-800">
+                                <span className="material-symbols-outlined text-xl">menu</span>
+                            </div>
+                            <h2 className="text-xl font-bold tracking-tight">Unit Converter Pro</h2>
+                            <div className="flex size-10 items-center justify-center rounded-full bg-slate-800">
+                                <span className="material-symbols-outlined text-xl">settings</span>
+                            </div>
+                        </header>
+
+                        <div className="py-2 mb-4">
+                            <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 category-scroll px-2">
+                                {['Weight', 'Length', 'Temp', 'Volume'].map(cat => (
+                                    <div
+                                        key={cat}
+                                        onClick={() => changeCategory(cat)}
+                                        className={`flex flex-col items-center min-w-[90px] py-4 rounded-3xl transition-all cursor-pointer active:scale-95 ${currentCategory === (cat === 'Temp' ? 'TEMP' : cat.toUpperCase()) ? 'bg-accent-green/20 border border-accent-green/30 shadow-lg shadow-accent-green/5' : 'bg-white/5 opacity-60'}`}
+                                    >
+                                        <span className={`material-symbols-outlined text-2xl ${currentCategory === (cat === 'Temp' ? 'TEMP' : cat.toUpperCase()) ? 'text-accent-green fill-1' : 'text-slate-400'}`}>
+                                            {cat === 'Weight' ? 'scale' : cat === 'Length' ? 'straighten' : cat === 'Temp' ? 'thermostat' : 'opacity'}
+                                        </span>
+                                        <span className={`text-xs mt-2 ${currentCategory === (cat === 'Temp' ? 'TEMP' : cat.toUpperCase()) ? 'font-bold text-accent-green' : 'font-semibold text-slate-400'}`}>{cat}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <main className="flex flex-col gap-6">
+                            <div className="relative overflow-hidden rounded-3xl glass p-8 flex flex-col gap-3 main-card">
+                                <div className="absolute -right-10 -top-10 size-48 bg-accent-green/10 rounded-full blur-3xl"></div>
+                                <div className="flex items-center gap-2 text-accent-green">
+                                    <span className="material-symbols-outlined text-sm">info</span>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest">Live Converter</p>
+                                </div>
+                                <h3 className="text-3xl font-bold">{currentCategory.charAt(0) + currentCategory.slice(1).toLowerCase()}</h3>
+                                <p className="text-sm text-slate-400">Professional grade conversion with instant results.</p>
+                            </div>
+
+                            <div className="flex flex-col gap-4">
+                                <div className="glass p-6 sm:p-8 rounded-[2.5rem] flex flex-col gap-6 main-card">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Source Unit</span>
+                                        <div className="px-3 py-1 bg-accent-green/10 rounded-full border border-accent-green/20">
+                                            <span className="text-[10px] font-bold text-accent-green uppercase">From</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="flex flex-col min-w-0 flex-shrink">
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    value={fromUnit.id}
+                                                    onChange={(e) => setFromUnit(UNITS[currentCategory].find(u => u.id === e.target.value))}
+                                                    className="bg-transparent border-none text-xl sm:text-2xl font-bold p-0 focus:ring-0 text-white appearance-none cursor-pointer truncate max-w-[120px] sm:max-w-none"
+                                                >
+                                                    {UNITS[currentCategory].map(u => <option key={u.id} value={u.id} className="bg-background-dark">{u.label}</option>)}
+                                                </select>
+                                                <span className="material-symbols-outlined text-slate-500 text-sm pointer-events-none">unfold_more</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex-1 min-w-0 flex items-center justify-end gap-2 overflow-hidden">
+                                            <input
+                                                className="bg-transparent border-none text-3xl sm:text-4xl md:text-5xl font-light text-right p-0 focus:ring-0 w-full text-white placeholder:text-slate-700 overflow-x-auto hide-scrollbar"
+                                                placeholder="0"
+                                                type="number"
+                                                value={inputAmount}
+                                                onChange={(e) => setInputAmount(e.target.value)}
+                                                onBlur={addToHistory}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="relative h-4 flex justify-center items-center">
+                                    <button
+                                        onClick={handleSwap}
+                                        className="absolute z-10 size-14 rounded-full bg-accent-green text-white shadow-xl shadow-accent-green/40 flex items-center justify-center transition-transform active:scale-90 border-[6px] border-background-dark"
+                                    >
+                                        <span className="material-symbols-outlined text-2xl font-bold swap-icon">swap_vert</span>
+                                    </button>
+                                    <div className="w-full h-px bg-slate-800"></div>
+                                </div>
+
+                                <div className="glass p-6 sm:p-8 rounded-[2.5rem] flex flex-col gap-6 main-card">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Target Unit</span>
+                                        <div className="px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
+                                            <span className="text-[10px] font-bold text-primary uppercase">To</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="flex flex-col min-w-0 flex-shrink">
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    value={toUnit.id}
+                                                    onChange={(e) => setToUnit(UNITS[currentCategory].find(u => u.id === e.target.value))}
+                                                    className="bg-transparent border-none text-xl sm:text-2xl font-bold p-0 focus:ring-0 text-white appearance-none cursor-pointer truncate max-w-[120px] sm:max-w-none"
+                                                >
+                                                    {UNITS[currentCategory].map(u => <option key={u.id} value={u.id} className="bg-background-dark">{u.label}</option>)}
+                                                </select>
+                                                <span className="material-symbols-outlined text-slate-500 text-sm pointer-events-none">unfold_more</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex-1 min-w-0 flex items-center justify-end overflow-x-auto hide-scrollbar">
+                                            <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-accent-green whitespace-nowrap">{result}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mt-4">
+                                    <button
+                                        onClick={() => setCurrentScreen('history')}
+                                        className="py-5 rounded-3xl glass text-xs font-bold text-slate-400 flex items-center justify-center gap-3 active:bg-accent-green/10 active:text-accent-green transition-all"
+                                    >
+                                        <span className="material-symbols-outlined">history</span> History
+                                    </button>
+                                    <button
+                                        onClick={() => setCurrentScreen('favorites')}
+                                        className="py-5 rounded-3xl glass text-xs font-bold text-slate-400 flex items-center justify-center gap-3 active:bg-accent-green/10 active:text-accent-green transition-all"
+                                    >
+                                        <span className={`material-symbols-outlined ${isCurrentFav ? 'text-accent-green fill-1' : ''}`}>star</span> Favorites
+                                    </button>
+                                </div>
+                            </div>
+                        </main>
+                    </ScreenWrapper>
+
+                    {/* HISTORY SCREEN */}
+                    <ScreenWrapper active={currentScreen === 'history'} id="history">
+                        <header className="flex items-center py-6 justify-between">
+                            <div onClick={() => setCurrentScreen('home')} className="flex size-10 items-center justify-center rounded-full bg-slate-800 cursor-pointer active:scale-95 transition-transform">
+                                <span className="material-symbols-outlined text-xl">arrow_back_ios_new</span>
+                            </div>
+                            <h2 className="text-xl font-bold">History</h2>
+                            <button
+                                onClick={() => setHistory([])}
+                                className="text-xs font-bold text-accent-green px-4 py-2 rounded-full border border-accent-green/20 active:bg-accent-green/10"
+                            >
+                                Clear
+                            </button>
+                        </header>
+                        <main className="flex flex-col gap-4 overflow-y-auto hide-scrollbar">
+                            {history.length === 0 ? (
+                                <div className="text-center py-32 opacity-20 flex flex-col items-center gap-4">
+                                    <span className="material-symbols-outlined text-6xl">history</span>
+                                    <p className="font-bold">No history yet</p>
+                                </div>
+                            ) : history.map(item => (
+                                <div key={item.id} className="glass p-5 rounded-3xl flex items-center justify-between group animate-fade-in">
+                                    <div className="flex items-center gap-5">
+                                        <div className="size-12 rounded-2xl bg-accent-green/10 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-accent-green fill-1">{item.icon}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-base font-bold">{item.from} → {item.to}</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[10px] text-accent-green font-black uppercase tracking-widest">{item.category}</span>
+                                                <span className="text-[10px] text-slate-500 font-medium">{item.time}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span className="material-symbols-outlined text-slate-600">chevron_right</span>
+                                </div>
+                            ))}
+                        </main>
+                    </ScreenWrapper>
+
+                    {/* FAVORITES SCREEN */}
+                    <ScreenWrapper active={currentScreen === 'favorites'} id="favorites">
+                        <header className="flex items-center py-6 justify-between">
+                            <div onClick={() => setCurrentScreen('home')} className="flex size-10 items-center justify-center rounded-full bg-slate-800 cursor-pointer active:scale-95 transition-transform">
+                                <span className="material-symbols-outlined text-xl">arrow_back_ios_new</span>
+                            </div>
+                            <h2 className="text-xl font-bold">Favorites</h2>
+                            <div className="size-10 bg-transparent"></div>
+                        </header>
+                        <main className="flex flex-col gap-4 overflow-y-auto hide-scrollbar">
+                            {favorites.length === 0 ? (
+                                <div className="text-center py-32 opacity-20 flex flex-col items-center gap-4">
+                                    <span className="material-symbols-outlined text-6xl">star</span>
+                                    <p className="font-bold">No favorites saved</p>
+                                </div>
+                            ) : favorites.map(fav => (
+                                <div key={fav.id} className="glass relative overflow-hidden p-6 rounded-[2rem] border-l-4 border-l-accent-green group animate-fade-in">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="size-12 rounded-2xl bg-accent-green/10 flex items-center justify-center">
+                                                <span className="material-symbols-outlined fill-1 text-accent-green">{fav.icon}</span>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{fav.catKey}</p>
+                                                <h4 className="text-xl font-bold">{fav.from.toLowerCase()} to {fav.to.toLowerCase()}</h4>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => toggleFavorite({ id: fav.fromId }, { id: fav.toId }, fav.catKey)} className="text-accent-green active:scale-90 transition-transform">
+                                            <span className="material-symbols-outlined fill-1 text-2xl">star</span>
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm text-slate-400">{fav.fromLabel} to {fav.toLabel}</p>
+                                        <button
+                                            onClick={() => {
+                                                const catUnits = UNITS[fav.catKey];
+                                                setCurrentCategory(fav.catKey);
+                                                setFromUnit(catUnits.find(u => u.id === fav.fromId));
+                                                setToUnit(catUnits.find(u => u.id === fav.toId));
+                                                setCurrentScreen('home');
+                                            }}
+                                            className="bg-accent-green text-white px-6 py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-accent-green/20 active:scale-95 transition-transform font-bold text-sm"
+                                        >
+                                            Use Converter <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </main>
+                    </ScreenWrapper>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
